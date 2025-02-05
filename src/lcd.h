@@ -9,7 +9,7 @@
 * Related Document: See README.md
 *
 *******************************************************************************
-* Copyright 2023, Cypress Semiconductor Corporation (an Infineon company) or
+* Copyright 2023-2025, Cypress Semiconductor Corporation (an Infineon company) or
 * an affiliate of Cypress Semiconductor Corporation.  All rights reserved.
 *
 * This software, including source code, documentation and related
@@ -51,10 +51,10 @@
  * Macro declarations
  ******************************************************************************/
 /* Delay for LCD enable pin */
-#define LCD_CLOCK_DELAY         (2U)
+#define LCD_CLOCK_DELAY         (1U)
 
 /* Delay for LCD periodic print */
-#define PERIODIC_DELAY          (3000U)
+#define PERIODIC_DELAY          (1000U)
 
 /* LCD command - First row, first column */
 #define FIRST_ROW_POS           (0x00U)
@@ -80,20 +80,11 @@
 /* Size of Byte */
 #define BYTE_SIZE               (8U)
 
-/* PWM period value */
-#define PWM_PERIOD              (10U)
-
-/* PWM compare value */
-#define PWM_COMPARE             (uint32_t)(PWM_PERIOD * PWM_DUTY_CYCLE / 100)
-
-/* To adjust backlighting brightness % (For maximum brightness - set to 100U, For minimum brightness- set to 0U )*/
-#define PWM_DUTY_CYCLE          (25U)
-
 /* LCD timer */
-#define LCD_TIMER_ID            (CY_PDUTILS_TIMER_USER_START_ID + 1)
+#define LCD_TIMER_ID            (CY_PDUTILS_TIMER_USER_START_ID + 2)
 
 /* LCD Periodic timer */
-#define LCD_PERIODIC_TIMER_ID   (CY_PDUTILS_TIMER_USER_START_ID + 2)
+#define LCD_PERIODIC_TIMER_ID   (CY_PDUTILS_TIMER_USER_START_ID + 3)
 
 /* Number of columns in LCD */
 #define LCD_COLUMN_COUNT        (16)
@@ -122,7 +113,9 @@ typedef enum
 
 typedef enum
 {
-    FIRST_ROW = 0,
+    LCD_START = 0,
+    LCD_INIT,
+    FIRST_ROW,
     PRINT_SOURCE,
     SECOND_ROW,
     PRINT_PDO,
@@ -149,6 +142,8 @@ typedef union
 /******************************************************************************
  * Global function declaration
  ******************************************************************************/
+void lcd_timer_cb (cy_timer_id_t id, void *callbackContext);
+void lcd_periodic_timer_cb (cy_timer_id_t id, void *callbackContext);
 void lcd_clock(void);
 void lcd_write(uint8_t data);
 void lcd_cmd(uint8_t cmd);

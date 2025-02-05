@@ -9,7 +9,7 @@
 * Related Document: See README.md
 *
 *******************************************************************************
-* Copyright 2023, Cypress Semiconductor Corporation (an Infineon company) or
+* Copyright 2023-2025, Cypress Semiconductor Corporation (an Infineon company) or
 * an affiliate of Cypress Semiconductor Corporation.  All rights reserved.
 *
 * This software, including source code, documentation and related
@@ -59,7 +59,7 @@ volatile bool contractFlag = false, lcdTimerFlag = false;
 char lcdData[LCD_COLUMN_COUNT + 1];
 
 byte_parse_t byteParse, byteParseArr[LCD_COLUMN_COUNT + 1];
-extern uint8_t srcType;
+extern uint8_t srcType[2];
 extern lcd_write_state_t lcd_write_state;
 extern lcd_print_state_t lcd_print_state;
 extern cy_stc_pdutils_sw_timer_t gl_TimerCtx;
@@ -94,7 +94,7 @@ void lcd_timer_cb (
 * Function Name: lcd_periodic_timer_cb
 ********************************************************************************
 * Summary:
-*   - Sets the LCD Print State to CLEAR_DISPLAY
+*   - Sets the LCD Print State to LCD_INIT/CLEAR_DISPLAY
 *   - Sets the LCD Write State to LCD_CMD
 *
 * Parameters:
@@ -109,7 +109,15 @@ void lcd_periodic_timer_cb (
         cy_timer_id_t id,            /**< Timer ID for which callback is being generated. */
         void *callbackContext)       /**< Timer module Context. */
 {
-    lcd_print_state = CLEAR_DISPLAY;
+    if (lcd_print_state == LCD_START)
+    {
+        lcd_print_state = LCD_INIT;
+    }
+    else
+    {
+        lcd_print_state = CLEAR_DISPLAY;
+    }
+
     lcd_write_state = LCD_CMD;
 }
 
@@ -136,6 +144,9 @@ void lcd_clock()
 
     /* Pulling enable Signal to low */
     Cy_GPIO_Clr(CYBSP_LCD_EN_PORT, CYBSP_LCD_EN_PIN);
+
+    /* Delay (1ms) - Time to read/write in Data Registers */
+    Cy_SysLib_Delay(LCD_CLOCK_DELAY);
 }
 
 /*******************************************************************************
@@ -269,7 +280,7 @@ void lcd_init()
 
     /* Clear the display */
     lcd_cmd(CLEAR_DIS_CMD);
-    Cy_SysLib_Delay(2);
+    Cy_SysLib_Delay(LCD_CLOCK_DELAY);
 
     /* Entry mode set */
     lcd_cmd(ENTRY_SET_CMD);
@@ -452,7 +463,7 @@ void lcd_update_data(void)
     /* Initializing the arrays to zero */
     memset (lcdData, 0, sizeof(lcdData));
 
-    switch (srcType)
+    switch (srcType[0])
     {
         /* PD Power Source */
         case PD_POWER_SOURCE:
@@ -489,21 +500,25 @@ void lcd_update_data(void)
         /* DCP source */
         case DCP_SOURCE:
             strcpy((char *)&byteParseArr, "DCP source");
+            Cy_SysLib_Delay (LCD_CLOCK_DELAY);
             break;
 
         /* CDP source */
         case CDP_SOURCE:
             strcpy((char *)&byteParseArr, "CDP source");
+            Cy_SysLib_Delay (LCD_CLOCK_DELAY);
             break;
 
         /* SDP source */
         case SDP_SOURCE:
             strcpy((char *)&byteParseArr, "SDP source");
+            Cy_SysLib_Delay (LCD_CLOCK_DELAY);
             break;
 
         /* Type-C disconnect */
         case TYPE_C_DISCONNECT:
             strcpy((char *)&byteParseArr, "USB-C disconnect");
+            Cy_SysLib_Delay (LCD_CLOCK_DELAY);
             break;
     }
 }
@@ -526,6 +541,14 @@ void lcd_update_display(void)
     /* Print Source type and PD contract details state machine */
     switch (lcd_print_state)
     {
+        /* LCD Init (Blocking Function) - As it is called only at the
+         * initialization time */
+        case LCD_INIT:
+            lcd_init();
+            lcd_print_state = FIRST_ROW;
+            lcd_write_state = LCD_CMD;
+            break;
+
         /* Sets the cursor to the First row of LCD */
         case FIRST_ROW:
             if (lcd_write_nonblock(FIRST_ROW_POS))
@@ -586,6 +609,10 @@ void lcd_update_display(void)
                 Cy_PdUtils_SwTimer_Start (&gl_TimerCtx, (void *)&gl_PdStackPort0Ctx, (cy_timer_id_t)LCD_PERIODIC_TIMER_ID,
                         PERIODIC_DELAY, lcd_periodic_timer_cb);
             }
+            break;
+
+        case LCD_START:
+            /* Do Nothing */
             break;
     }
 }
